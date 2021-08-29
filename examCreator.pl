@@ -30,61 +30,56 @@ sub createExamFile($fromFile, $toFile){
     open(my $ff, '<', $fromFile)     or die "$fromFile: $!";
     open(my $tf, '>', $toFile  )     or die "$toFile: $!";
 
-    my %solutions;
     my $questionNumber = 1;
-    my $answerNumber = 0;
     my %currentAnswerSet;
-
-    my $infoText = 1;
+    my $introText = 1;
 
     while(my $line = readline()){
-        #Intro-Text
-        if($infoText){
+
+        #intro text
+        if($introText){
             print({$tf} $line);
-            if(index($line, "_") >= 0){
-                $infoText = 0;
+            if(index($line, "_") == 0){ #end of intro-section
+                $introText = 0;
             }
         }
-        #neue Frage
-        elsif(index($line, "_") >= 0){
-            #vorherige Antworten printen
-            if($questionNumber != 0 and keys(%currentAnswerSet) != 0){
-                #currentAnswerSet printen (da hash -> automatisch)
-                for my $a (keys %currentAnswerSet){
-                    say({$tf} "\t[ ] $currentAnswerSet{$a}");
-                }
-                %currentAnswerSet = ();
-            }
 
-            $questionNumber++;
-
-            print({$tf} $line); # _____ printen
-        }
-        #neue Antwort
+        #read and save new answer
         elsif(index($line, "[") >= 0){
-            my $bracketsStart   = index($line, "[");
-            my $bracketsEnd     = index($line, "]");
-            my $bracketSize     = $bracketsEnd - $bracketsStart + 1;
-
-            my $correctness     = trim(substr($line, $bracketsStart, $bracketSize));
-            my $answer          = trim(substr($line, $bracketsEnd+1)); #https://metacpan.org/pod/Text::Trim
-            
-            $currentAnswerSet{"answer ".$answerNumber++} = $answer;
-            $solutions{$questionNumber} = "Hallo";
+            readAndSaveNewAnswer(\%currentAnswerSet, \$line)
         }
-        #nur übertragen
+
+        #print lines
         else{
-            if(keys(%currentAnswerSet) != 0){ #Linie nach Fragenset -> erst Fragenset printen
-                for my $a (keys %currentAnswerSet){
-                    say({$tf} "\t[ ] $currentAnswerSet{$a}");
-                }
-                %currentAnswerSet = ();
-            } 
+            printAllPossibleAnswers(\%currentAnswerSet, $tf);
             print({$tf} $line);
+            if(index($line, "_") == 0){ #end of current question-section
+                $questionNumber++;
+            }
         }
     }
 
-
     close($ff);
     close($tf);
+}
+
+
+sub printAllPossibleAnswers($currentAnswerSet_ref, $toFile_ref){
+    if(keys(%{$currentAnswerSet_ref}) != 0){ 
+        for my $b (keys %{$currentAnswerSet_ref}){
+            say({$toFile_ref} "\t[ ] ${$currentAnswerSet_ref}{$b}");
+        }
+        %{$currentAnswerSet_ref} = ();
+    }
+}
+
+sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref){
+    state $answerNumber = 0;
+
+    my $bracketsStart   = index(${$line_ref}, "[");
+    my $bracketsEnd     = index(${$line_ref}, "]");
+    my $bracketSize     = $bracketsEnd - $bracketsStart + 1;
+    my $answer          = trim(substr(${$line_ref}, $bracketsEnd+1)); #https://metacpan.org/pod/Text::Trim
+
+    ${$currentAnswerSet_ref}{"answer ".$answerNumber++} = $answer;
 }
