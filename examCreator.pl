@@ -5,6 +5,7 @@ use v5.34;
 use warnings;
 use diagnostics;
 use experimental 'signatures';
+use Data::Show;
 
 
 use lib "/Users/louisa/fhnw/perl/final_project/lib";
@@ -22,11 +23,8 @@ our $solutionFile    = $ARGV[0];
 my  $examFile        = "$customTimeStamp-$solutionFile";
 
 
-
-my ($examFileLines_ref, $allCorrectAnswers_ref) = readFile($solutionFile);
-my @examFileLines                               = @{$examFileLines_ref};
-
-createExamFile($examFile, @examFileLines);
+my ($examFileLines_ref, $allAnswers_ref, $allCorrectAnswers_ref) = readFile($solutionFile);
+createExamFile($examFile, @{$examFileLines_ref});
 
 ################################################################################
 #Subroutines

@@ -13,21 +13,24 @@ use Exporter::Attributes 'import';
 # lines for the exam file and another array with all correct answers.
 # If the second parameter is 0 the lines for the exam file won't be created.
 sub readFile : Exported ($file, $createExamFileLines = 1){
-    
-    open(my $f, '<', $file)    or die "$file: $!";
+    my $f;
+    open($f, '<', $file)    or die "$file: $!";
+    # return properties
+    my @examFileLines       = ();
+    my %allAnswers          = ();
+    my %allCorrectAnswers   = ();
 
-    state @examFileLines    = ();
-    state @allCorrectAnswers;
-
-    state $introText        = 1;
-    state $questionNumber   = 1;
-    state $answerNumber     = 1;
-    state %currentAnswerSet;
+    # helper properties
+    my $introText           = 1;
+    my $questionNumber      = 1;
+    my $answerNumber        = 1;
+    my %currentAnswerSet    = ();
 
     state $LINE_REGEX       = qr{ ^ _+ $ }xms;
     state $ANSWER_REGEX     = qr{ ^ \s* \[ .* \] }xms;
 
-    while(my $line = readline()){
+    LINE:
+    while(my $line = readline($f)){
         #intro text
         if($introText){
             push(@examFileLines, $line) if $createExamFileLines;
@@ -38,7 +41,7 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
 
         #read and save new answer
         elsif($line =~ $ANSWER_REGEX){
-            readAndSaveNewAnswer(\%currentAnswerSet, \$line, \$answerNumber, \@allCorrectAnswers);
+            readAndSaveNewAnswer(\%currentAnswerSet, \$line, \$answerNumber, \$questionNumber ,\%allCorrectAnswers, \%allAnswers);
         }
 
         #print lines
@@ -54,13 +57,14 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
 
     close($f);
 
-    return (\@examFileLines, \@allCorrectAnswers);
+    return (\@examFileLines, \%allAnswers, \%allCorrectAnswers);
 }
 
 
 sub pushAllPossibleAnswers($currentAnswerSet_ref, $examFileLines_ref, $createExamFileLines){
     if(keys(%{$currentAnswerSet_ref}) != 0){
             if($createExamFileLines){
+                ANSWER:
                 for my $key (keys %{$currentAnswerSet_ref}){
                 push(@{$examFileLines_ref}, "\t[ ] ${$currentAnswerSet_ref}{$key}\n");
             }
@@ -69,7 +73,7 @@ sub pushAllPossibleAnswers($currentAnswerSet_ref, $examFileLines_ref, $createExa
     }
 }
 
-sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $allCorrectAnswers_ref){
+sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $questionNumber_ref, $allCorrectAnswers_ref, $allAnswers_ref){
     my $bracketsStart   = index(${$line_ref}, "[");
     my $bracketsEnd     = index(${$line_ref}, "]");
     my $bracketSize     = $bracketsEnd - $bracketsStart + 1;
@@ -79,10 +83,12 @@ sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $a
     state $CORRECT_ANSWER_REGEX = qr{ ^ \[ \S+ \] }xms;
     
     if($bracket =~ $CORRECT_ANSWER_REGEX){ # save correct answer
-        push(@{$allCorrectAnswers_ref}, $answer);
+        $allCorrectAnswers_ref -> {"question".${$questionNumber_ref}} = $answer
+        # push(%{$allCorrectAnswers_ref}, $answer);
     }
 
     ${$currentAnswerSet_ref}{"answer".${$answerNumber_ref}++} = $answer;
+    push( $allAnswers_ref -> {"question".${$questionNumber_ref}} -> @*, $answer)
 }
 
 1; #return true at the end of the module

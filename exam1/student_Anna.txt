@@ -39,6 +39,6 @@ ________________________________________________________________________________
     [ ] To put an X in every box, except the one beside the correct answer
     [ ] To put an smiley-face emoji in the box beside the correct answer
     [ ] To delete the box beside the correct answer
-    [6] To delete the correct answer
+    [X] To delete the correct answer
 
 ________________________________________________________________________________
