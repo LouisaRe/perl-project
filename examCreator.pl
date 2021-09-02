@@ -19,11 +19,11 @@ my  ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time); # h
 my  $customTimeStamp = sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900,$mon+1,$mday,$hour,$min,$sec); # https://perldoc.perl.org/functions/sprintf
 
 #files
-our $solutionFile    = $ARGV[0];
+my $solutionFile     = $ARGV[0];
 my  $examFile        = "$customTimeStamp-$solutionFile";
 
 
-my ($examFileLines_ref, $allAnswers_ref, $allCorrectAnswers_ref) = readFile($solutionFile);
+my ($examFileLines_ref, $allQAs_ref) = readFile($solutionFile);
 createExamFile($examFile, @{$examFileLines_ref});
 
 ################################################################################
