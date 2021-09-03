@@ -17,29 +17,27 @@ use Util::IO;
 my ($solutionFile, @examFiles)                  = @ARGV;
 my ($examFileLines_ref, $solutionAllQAs_ref)    = readFile($solutionFile, 0);
 
-checkExamFiles();
+my $examResults_ref = checkExamFiles();
+
+reportResults           (scalar(keys %{$solutionAllQAs_ref}), $examResults_ref);
+reportCohortPerformence (scalar(keys %{$solutionAllQAs_ref}), $examResults_ref);
+reportMissingElements   ($examResults_ref);
+reportNotExpected       (scalar(keys %{$solutionAllQAs_ref}), $examResults_ref);
+
+
 
 ################################################################################
 #Subroutines
 
 sub checkExamFiles(){
-    my $report_ref;
 
-    #additional information
-    my $totalNrOfAnsweredQuestions                           =  0;
-    my ($minAnsweredQuestions, $nrOfMinAnsweredQuestions)    = (scalar(keys %{$solutionAllQAs_ref}), 0);
-    my ($maxAnsweredQuestions, $nrOfMaxAnsweredQuestions)    = (0, 0);
-    my $totalNrOfCorrectAns                  =  0;
-    my ($minCorrectAns, $nrOfMinCorrectAns)  = (scalar(keys %{$solutionAllQAs_ref}), 0);
-    my ($maxCorrectAns, $nrOfMaxCorrectAns)  = (0, 0);
+    my $examResults_ref;
 
-    say("\n________RESULTS________\n");
     FILE:
     for my $file (@examFiles){
-        my $correctCounter      = 0;
-        my $answeredQesCounter  = 0;
-
-        my ($examFileLines_ref, $allQAs_ref) = readFile($file, 0);
+        my $correctCounter                    = 0;
+        my $answeredQesCounter                = 0;
+        my ($examFileLines_ref, $allQAs_ref)  = readFile($file, 0);
 
         SECTION:
         for my $sectNr (1 .. scalar(keys %{$solutionAllQAs_ref})){
@@ -49,7 +47,7 @@ sub checkExamFiles(){
             my $examQ   = ${$allQAs_ref}{"section$sectNr"}{"question"};
 
             if( defined $solQ && not defined $examQ){
-                push($report_ref -> {$file} -> @* , "Section $sectNr - Missing question \t: $solQ");
+                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNr - Missing question \t: $solQ");
             }
             
             my %solA                = % {%{ %{$solutionAllQAs_ref}{"section$sectNr"} }{"answers"}};
@@ -72,7 +70,7 @@ sub checkExamFiles(){
 
                 # same answer set?
                 next ANSWER if exists $examA{$a}; # find missing element
-                push($report_ref -> {$file} -> @* , "Section $sectNr - Missing answer \t: $a\n");
+                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNr - Missing answer \t: $a\n");
     
             }
             # remove the just given point again, if there were too many checked answers.
@@ -84,84 +82,122 @@ sub checkExamFiles(){
                 $answeredQesCounter++;
             }
         }
-        # print results
-        say("$file \t $correctCounter/".scalar(keys %{$solutionAllQAs_ref}) );
 
-        #update additional information
+        #save / update results
+        ${$examResults_ref}{"correctAns"}{$file}    = $correctCounter;
+        ${$examResults_ref}{"correctAns"}{"total"} += $correctCounter;
+        ${$examResults_ref}{"answeredQ"}{$file}     = $answeredQesCounter;
+        ${$examResults_ref}{"answeredQ"}{"total"}  += $answeredQesCounter;       
+    }
 
-        $totalNrOfAnsweredQuestions += $answeredQesCounter;
+    return $examResults_ref;
+}
 
-        if($answeredQesCounter < $minAnsweredQuestions){
-            $minAnsweredQuestions       = $answeredQesCounter;
-            $nrOfMinAnsweredQuestions   = 1;
-        }elsif($answeredQesCounter == $minAnsweredQuestions){
-            $nrOfMinAnsweredQuestions++;
+################################################################################
+#report subroutines
+
+sub reportResults($totalQuestions, $examResults_ref){
+
+    say("\n________RESULTS________\n");
+
+    # print results
+    for my $file (@examFiles){
+        say("$file \t: ${$examResults_ref}{'correctAns'}{$file}/$totalQuestions");
+    }
+}
+
+sub reportCohortPerformence($totalQuestions, $examResults_ref){
+
+    my ($minAnsweredQ , $nrOfMinAnsweredQ) = ($totalQuestions    , 0);
+    my ($maxAnsweredQ , $nrOfMaxAnsweredQ) = (0                  , 0);
+
+    my ($minCorrectA  , $nrOfMinCorrectA)  = ($totalQuestions    , 0);
+    my ($maxCorrectA  , $nrOfMaxCorrectA)  = (0                  , 0);
+
+    FILE:
+    for my $file (@examFiles){
+        my $answeredQ   = ${$examResults_ref}{'answeredQ'}{$file};
+        my $correctA    = ${$examResults_ref}{'correctAns'}{$file};
+
+        #answered questions:
+        if( $answeredQ < $minAnsweredQ ){
+            $minAnsweredQ       = $answeredQ;
+            $nrOfMinAnsweredQ   = 1;
+        }
+        elsif( $answeredQ == $minAnsweredQ ){
+            $nrOfMinAnsweredQ++;
+        }
+        if( $answeredQ > $maxAnsweredQ ){
+            $maxAnsweredQ       = $answeredQ;
+            $nrOfMaxAnsweredQ   = 1;
+        }
+        elsif( $answeredQ == $maxAnsweredQ ){
+            $nrOfMaxAnsweredQ++;
         }
 
-        if($answeredQesCounter > $maxAnsweredQuestions){
-            $maxAnsweredQuestions       = $answeredQesCounter;
-            $nrOfMaxAnsweredQuestions   = 1;
-        }elsif($answeredQesCounter == $maxAnsweredQuestions){
-            $nrOfMaxAnsweredQuestions++;
+        #correct answers
+        if( $correctA < $minCorrectA ){
+            $minCorrectA       = $correctA;
+            $nrOfMinCorrectA   = 1;
         }
-
-        $totalNrOfCorrectAns += $correctCounter;
-
-        if($correctCounter < $minCorrectAns){
-            $minCorrectAns      = $correctCounter;
-            $nrOfMinCorrectAns  = 1;
-        }elsif($correctCounter == $minCorrectAns){
-            $nrOfMinCorrectAns++;
+        elsif( $correctA == $minCorrectA ){
+            $nrOfMinCorrectA++;
         }
-
-        if($correctCounter > $maxCorrectAns){
-            $maxCorrectAns      = $correctCounter;
-            $nrOfMaxCorrectAns  = 1;
-        }elsif($correctCounter == $maxCorrectAns){
-            $nrOfMaxCorrectAns++;
+        if( $correctA > $maxCorrectA ){
+            $maxCorrectA       = $correctA;
+            $nrOfMaxCorrectA   = 1;
+        }
+        elsif( $correctA == $maxCorrectA ){
+            $nrOfMaxCorrectA++;
         }
     }
 
-    # print report
-    say("\n________MISSING ELEMENTS________ \n");
-    for my $file (keys %{$report_ref}){
-        say "$file:";
-        say %{$report_ref}{$file} -> @*;
-    }   
+    say("\n________COHORT PERFORMENCE________\n");
 
-    reportAdditionalInfo(
-        scalar(@examFiles),
+    say("Average number of answered questions \t: " . sprintf("%.1f" , ${$examResults_ref}{"answeredQ"}{"total"} / scalar(@examFiles) ));
+    say("Minimum " . ("\t" x 4) . ": $minAnsweredQ ($nrOfMinAnsweredQ student" . ($nrOfMinAnsweredQ != 1 ? "s" : "") . ")");
+    say("Maximum " . ("\t" x 4) . ": $maxAnsweredQ ($nrOfMaxAnsweredQ student" . ($nrOfMaxAnsweredQ != 1 ? "s" : "") . ")");
 
-        $totalNrOfAnsweredQuestions, 
-        $minAnsweredQuestions, $nrOfMinAnsweredQuestions,
-        $maxAnsweredQuestions, $nrOfMaxAnsweredQuestions,
-
-        $totalNrOfCorrectAns,
-        $minCorrectAns, $nrOfMinCorrectAns,
-        $maxCorrectAns, $nrOfMaxCorrectAns);
+    say("\nAverage number of correct answers \t: " . sprintf("%.1f" , ${$examResults_ref}{"correctAns"}{"total"} / scalar(@examFiles) ));
+    say("Minimum " . ("\t" x 4) . ": $minCorrectA ($nrOfMinCorrectA student" . ($nrOfMinCorrectA != 1 ? "s" : "") . ")");
+    say("Maximum " . ("\t" x 4) . ": $maxCorrectA ($nrOfMaxCorrectA student" . ($nrOfMaxCorrectA != 1 ? "s" : "") . ")");
 }
 
+# Print out all exams that have a grade < 3.75, and so didn't pass the test.
+# In addition print all passed exams that are in the bottom 25% of all exams.
+sub reportNotExpected($totalQuestions, $examResults_ref){
 
-sub reportAdditionalInfo($totalExams, 
-                        
-                        $totalNrOfAnsweredQuestions, 
-                        $minAnsweredQuestions, $nrOfMinAnsweredQuestions,
-                        $maxAnsweredQuestions, $nrOfMaxAnsweredQuestions,
+    say("\n________BELOW EXPECTATION________ \n");
 
-                        $totalNrOfCorrectAns, 
-                        $minCorrectAns, $nrOfMinCorrectAns,
-                        $maxCorrectAns, $nrOfMaxCorrectAns){
+    my $nrBottom25 = sprintf('%.0f' , (scalar(@examFiles) / 4)) // 1;
+    my @lowestResults = ();
+    for my $file (@examFiles){
+        push(@lowestResults , ${$examResults_ref}{'correctAns'}{$file} );
+    }
+    @lowestResults = sort {$a <=> $b} (@lowestResults);
+    @lowestResults = splice (@lowestResults, 0, $nrBottom25);
 
-    my $averageQuestionsAns = $totalNrOfAnsweredQuestions/$totalExams;
-    my $averageCorrectAns   = $totalNrOfCorrectAns/$totalExams;
+    for my $file (@examFiles){
+        my $grade = ${$examResults_ref}{'correctAns'}{$file}/$totalQuestions * 5 + 1;
+        if($grade < 3.75){
+            say( "$file \t: ${$examResults_ref}{'correctAns'}{$file}/$totalQuestions (not passed -> reached grade: " . sprintf("%.2f", $grade) . ")" );
+        }else{
+            for my $lowR (@lowestResults){
+                if($lowR == ${$examResults_ref}{'correctAns'}{$file}){
+                    say( "$file \t: ${$examResults_ref}{'correctAns'}{$file}/$totalQuestions (bottom 25% of cohort)");
+                }
+            }
+        }
+    }
+}
 
-    say("________ADDITIONAL INFORMATION________ ");
+sub reportMissingElements($examResults_ref){
+    say("\n________MISSING ELEMENTS________ \n");
 
-    say("\nAverage number of answered questions \t: $averageQuestionsAns");
-    say("Minimum " . ("\t" x 4) . ": $minAnsweredQuestions ($nrOfMinAnsweredQuestions student" . ($nrOfMinAnsweredQuestions != 1 ? "s" : "") . ")");
-    say("Maximum " . ("\t" x 4) . ": $maxAnsweredQuestions ($nrOfMaxAnsweredQuestions student" . ($nrOfMaxAnsweredQuestions != 1 ? "s" : "") . ")");
-
-    say("\nAverage number of correct answers \t: $averageCorrectAns");
-    say("Minimum " . ("\t" x 4) . ": $minCorrectAns ($nrOfMinCorrectAns student" . ($nrOfMinCorrectAns != 1 ? "s" : "") . ")");
-    say("Maximum " . ("\t" x 4) . ": $maxCorrectAns ($nrOfMaxCorrectAns student" . ($nrOfMaxCorrectAns != 1 ? "s" : "") . ")");
+    for my $file (@examFiles){
+        if($examResults_ref -> {"missedEl"} -> {$file}){
+            say "$file:";
+            say $examResults_ref -> {"missedEl"} -> {$file} -> @*;
+        }
+    }
 }

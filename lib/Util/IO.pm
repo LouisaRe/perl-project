@@ -12,6 +12,16 @@ use Exporter::Attributes 'import';
 # This function reads in a given file and returns an array with converted 
 # lines for the exam file and another array with all correct answers.
 # If the second parameter is 0 the lines for the exam file won't be created.
+#
+# returned allQAs structure:
+#
+# section_-> {
+#     question => text,
+#     answers -> {
+#        text => isChecked,
+#        text => isChecked
+#     },
+# }
 sub readFile : Exported ($file, $createExamFileLines = 1){
     my $f;
     open($f, '<', $file)    or die "$file: $!";
@@ -85,28 +95,16 @@ sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $s
     my $bracketSize     = $bracketsEnd - $bracketsStart + 1;
     my $bracket         = trim(substr(${$line_ref}, $bracketsStart, $bracketSize)); #todo: bracket aus regex auslesen
 
-    my $answer          = trim(substr(${$line_ref}, $bracketsEnd+1)); #https://metacpan.org/pod/Text::Trim
-    my $correctness     = 0;
+    # my ($BRACKET_REGEX, $bracketContent) = qr{( (?m:^) \s*  (\[ .*? \])  )}xms;
+    # my $br = $1;
 
-    state $CORRECT_ANSWER_REGEX = qr{ ^ \[ \S+ \] }xms;
+    my $answerText          = trim(substr(${$line_ref}, $bracketsEnd+1)); #https://metacpan.org/pod/Text::Trim
     
-    if($bracket =~ $CORRECT_ANSWER_REGEX){ # save correct answer
-        $correctness = 1;
-    }
+    state $CORRECT_ANSWER_REGEX = qr{ ^ \[ \S+? \] }xms;
 
-    ${$currentAnswerSet_ref}{"answer".${$answerNumber_ref}++} = $answer;
+    ${$currentAnswerSet_ref}{"answer".${$answerNumber_ref}++} = $answerText;
 
-    $allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$answer} = $correctness;
+    $allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$answerText} = ($bracket =~ $CORRECT_ANSWER_REGEX); #save answerText (key) and if it isChecked (value)
 }
 
 1; #return true at the end of the module
-
-# section_-> {
-#     question => ...,
-
-    # answers -> {
-                # text => correctness,
-                # text => correctness
-    # },
-
-# }

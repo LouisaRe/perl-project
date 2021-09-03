@@ -17,16 +17,18 @@ Warning: Each question has only one correct answer. Answers to
 ________________________________________________________________________________
 
 1. The name of this class is:
-    [ ] Introduction to Perl for Programmers
+    [g] Introduction to Perl for Programmers
     [ ] Introduction to Perl for Programmers and Other Crazy People
-    [X] Introduction to Programming for Pearlers
+    [ ] Introduction to Programming for Pearlers
     [ ] Introduction to Aussies for Europeans
     [ ] Introduction to Python for Slytherins
 ________________________________________________________________________________
 2. The lecturer for this class is:
-    [] Dr Sigmund Freud
+    [ ] Dr Theodor Seuss Geisel
+    [ ] Dr Sigmund Freud
     [ ] Dr Victor von Doom
-    [X] Dr Damian Conway
+    [x] Dr Damian Conway
+    [ ] Dr Who
 
 ________________________________________________________________________________
 
