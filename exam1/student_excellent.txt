@@ -19,8 +19,8 @@ ________________________________________________________________________________
 1. The name of this class is:
     [g] Introduction to Perl for Programmers
     [ ] Introduction to Perl for Programmers and Other Crazy People
-    [ ] Introduction to Programming for Pearlers
-    [ ] Introduction to Aussies for Europeans
+    [ ] Introduction to Programming u Pearlers
+    [ ] Introduction to Aussies is ru Europeans
     [ ] Introduction to Python for Slytherins
 ________________________________________________________________________________
 2. The lecturer for this class is:
@@ -35,7 +35,7 @@ ________________________________________________________________________________
 
 3. The correct way to answer each question is:
 
-    [ ] To put an X in the box beside the correct answer
+    [ ] To put an X in the box beside  correct answer
     [ ] To put an X in every box, except the one beside the correct answer
     [ ] To put an smiley-face emoji in the box beside the correct answer
     [ ] To delete the box beside the correct answer

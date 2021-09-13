@@ -5,10 +5,15 @@ use v5.34;
 use warnings;
 use diagnostics;
 use experimental 'signatures';
+
 use Data::Show;
+use Text::Trim;
+use Text::Levenshtein qw(distance);
+use Lingua::StopWords qw( getStopWords );
 
 use lib "/Users/louisa/fhnw/perl/final_project/lib";
 use Util::IO;
+
 
 ################################################################################
 #Properties
@@ -35,62 +40,155 @@ sub checkExamFiles(){
 
     FILE:
     for my $file (@examFiles){
+
         my $correctCounter                    = 0;
-        my $answeredQesCounter                = 0;
+        my $answeredQCounter                  = 0;
         my ($examFileLines_ref, $allQAs_ref)  = readFile($file, 0);
 
-        SECTION:
-        for my $sectNr (1 .. scalar(keys %{$solutionAllQAs_ref})){
+        ##############################################
+        #Question Check
 
-            # same question?
-            my $solQ    = ${$solutionAllQAs_ref}{"section$sectNr"}{"question"};
-            my $examQ   = ${$allQAs_ref}{"section$sectNr"}{"question"};
+        SOL_SECTION:
+        for my $sectNrSol (1 .. scalar(keys %{$solutionAllQAs_ref})){
+            my $solQNormalized  = normalize(${$solutionAllQAs_ref}{"section$sectNrSol"}{"question"});
+            my $minQDistance    = 1000;
+            my $bestFitSection;
 
-            if( defined $solQ && not defined $examQ){
-                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNr - Missing question \t: $solQ");
-            }
-            
-            my %solA                = % {%{ %{$solutionAllQAs_ref}{"section$sectNr"} }{"answers"}};
-            my %examA               = % {%{ %{$allQAs_ref        }{"section$sectNr"} }{"answers"}};
-            my $numberCheckedA      = 0;
-            my $correctAnsChecked   = 0;
-            ANSWER:
-            for my $a (keys %solA){
-                
-                #count checked answers per section
-                if(defined($examA{$a}) && $examA{$a} eq 1){
-                    $numberCheckedA++;
+            # find best matching exam question
+            EXAM_SECTION:
+            for my $sectNrExam (1 .. scalar(keys %{$allQAs_ref})){
+
+                my $examQNormalized = normalize(${$allQAs_ref}{"section$sectNrExam"}{"question"});
+
+                my $distance = calculateDistance($solQNormalized, $examQNormalized);
+
+                if($distance < $minQDistance){
+                    $minQDistance = $distance;
+                    $bestFitSection = ${$allQAs_ref}{"section$sectNrExam"};
                 }
 
-                # Is the correct answer checked?
-                if($solA{$a} eq 1 && $solA{$a} eq $examA{$a}){
-                    $correctAnsChecked++;
+                last EXAM_SECTION if($distance == 0);
+                
+            }
+
+            # fill missed elements array
+            if($minQDistance > 0){
+                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing question \t: ${$solutionAllQAs_ref}{'section'.$sectNrSol}{'question'}");
+                if($minQDistance/length($solQNormalized) <= 0.1){
+                    push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Used instead \t: ${$bestFitSection}{'question'}");
+                }
+            }
+
+            ##############################################
+            #Answer Check
+
+            # only look at answers of relevant questions
+            if($minQDistance/length($solQNormalized) <= 0.1){ 
+
+                my %solAnsOfCurrQ       = % {%{ %{$solutionAllQAs_ref}{"section$sectNrSol"} }{"answers"}};
+                my %examAnsOfCurrQ      = % {%{ $bestFitSection }{"answers"}};
+                my $numberCheckedA      = 0;
+                my $correctAChecked     = 0;
+
+                SOL_ANSWER:
+                for my $sa (keys %solAnsOfCurrQ){
+
+                    my $solANormalized  = normalize($sa);
+                    my $minADistance    = 1000;
+                    my $bestFitA;
+
+                    # find best matching question answers
+                    EXAM_ANSWER:
+                    for my $ea (keys %examAnsOfCurrQ){
+
+                        my $examANormalized       = normalize($ea);
+                        my $ansDistance = calculateDistance($solANormalized, $examANormalized);
+
+                        if($ansDistance < $minADistance){
+                            $minADistance = $ansDistance;
+                            $bestFitA = $ea;
+                        }
+
+                        last EXAM_ANSWER if($ansDistance == 0);
+
+                    }
+
+                    # fill missed elements array
+                    if($minADistance > 0){
+                        push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing answer \t: $sa\n");
+                    
+                        if($minADistance/length($solANormalized) <= 0.1){
+                            push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Used instead \t: $bestFitA\n");
+                        }
+                    }
+                    
+                    # Is the correct answer checked?
+                    if($minADistance/length($solANormalized) <= 0.1){ 
+                        if($solAnsOfCurrQ{$sa} == 1 && $examAnsOfCurrQ{$bestFitA} == 1){
+                            $correctAChecked = 1;
+                        }
+                    }
+                }
+
+                EXAM_ANSWER:
+                for my $ea (keys %examAnsOfCurrQ){
+
+                    #count checked answers per section
+                    if($examAnsOfCurrQ{$ea} == 1){
+                        $numberCheckedA++;
+                    }
+    
+                }
+
+                # Award points for this section
+                if($correctAChecked && $numberCheckedA == 1){
                     $correctCounter++;
                 }
 
-                # same answer set?
-                next ANSWER if exists $examA{$a}; # find missing element
-                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNr - Missing answer \t: $a\n");
-    
-            }
-            # remove the just given point again, if there were too many checked answers.
-            if($correctAnsChecked && $numberCheckedA > 1){
-                $correctCounter--;
-            }
-            #update additional information
-            if($numberCheckedA > 0){
-                $answeredQesCounter++;
+                #update additional information
+                if($numberCheckedA > 0){
+                    $answeredQCounter++;
+                }
+                $numberCheckedA = 0;
             }
         }
+
+        ##############################################
+        # File/Total Infos
 
         #save / update results
         ${$examResults_ref}{"correctAns"}{$file}    = $correctCounter;
         ${$examResults_ref}{"correctAns"}{"total"} += $correctCounter;
-        ${$examResults_ref}{"answeredQ"}{$file}     = $answeredQesCounter;
-        ${$examResults_ref}{"answeredQ"}{"total"}  += $answeredQesCounter;       
+        ${$examResults_ref}{"answeredQ"}{$file}     = $answeredQCounter;
+        ${$examResults_ref}{"answeredQ"}{"total"}  += $answeredQCounter;       
     }
 
     return $examResults_ref;
+}
+
+################################################################################
+#inexact matching
+
+sub normalize($text){
+    if($text){
+        #to lowercase + remove spaces at start/end
+        my $result = trim(lc($text));
+
+        #remove stopwords
+        my $stopwords = getStopWords('en'); # https://metacpan.org/pod/Lingua::StopWords
+        $result = join ' ', grep { !$stopwords->{$_} } split(' ', $result);
+
+        #remove spaces
+        $result =~ s{\s\s+}{ }xg; #TODO
+
+        return $result;
+    }else{
+        return "";
+    }
+}
+
+sub calculateDistance($solText, $examText){
+    return distance($solText, $examText);
 }
 
 ################################################################################
@@ -102,13 +200,13 @@ sub reportResults($totalQuestions, $examResults_ref){
 
     # print results
     for my $file (@examFiles){
-        say("$file \t: ${$examResults_ref}{'correctAns'}{$file}/$totalQuestions");
+        say($file." \t: ".${$examResults_ref}{'correctAns'}{$file}."/$totalQuestions");
     }
 }
 
 sub reportCohortPerformence($totalQuestions, $examResults_ref){
 
-    my ($minAnsweredQ , $nrOfMinAnsweredQ) = ($totalQuestions    , 0);
+    my ($minAweredQ , $nrOfMinAnsweredQ) = ($totalQuestions    , 0);
     my ($maxAnsweredQ , $nrOfMaxAnsweredQ) = (0                  , 0);
 
     my ($minCorrectA  , $nrOfMinCorrectA)  = ($totalQuestions    , 0);
@@ -120,11 +218,11 @@ sub reportCohortPerformence($totalQuestions, $examResults_ref){
         my $correctA    = ${$examResults_ref}{'correctAns'}{$file};
 
         #answered questions:
-        if( $answeredQ < $minAnsweredQ ){
-            $minAnsweredQ       = $answeredQ;
+        if( $answeredQ < $minAweredQ ){
+            $minAweredQ       = $answeredQ;
             $nrOfMinAnsweredQ   = 1;
         }
-        elsif( $answeredQ == $minAnsweredQ ){
+        elsif( $answeredQ == $minAweredQ ){
             $nrOfMinAnsweredQ++;
         }
         if( $answeredQ > $maxAnsweredQ ){
@@ -155,7 +253,7 @@ sub reportCohortPerformence($totalQuestions, $examResults_ref){
     say("\n________COHORT PERFORMENCE________\n");
 
     say("Average number of answered questions \t: " . sprintf("%.1f" , ${$examResults_ref}{"answeredQ"}{"total"} / scalar(@examFiles) ));
-    say("Minimum " . ("\t" x 4) . ": $minAnsweredQ ($nrOfMinAnsweredQ student" . ($nrOfMinAnsweredQ != 1 ? "s" : "") . ")");
+    say("Minimum " . ("\t" x 4) . ": $minAweredQ ($nrOfMinAnsweredQ student" . ($nrOfMinAnsweredQ != 1 ? "s" : "") . ")");
     say("Maximum " . ("\t" x 4) . ": $maxAnsweredQ ($nrOfMaxAnsweredQ student" . ($nrOfMaxAnsweredQ != 1 ? "s" : "") . ")");
 
     say("\nAverage number of correct answers \t: " . sprintf("%.1f" , ${$examResults_ref}{"correctAns"}{"total"} / scalar(@examFiles) ));
