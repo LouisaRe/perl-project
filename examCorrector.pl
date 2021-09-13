@@ -50,30 +50,14 @@ sub checkExamFiles(){
 
         SOL_SECTION:
         for my $sectNrSol (1 .. scalar(keys %{$solutionAllQAs_ref})){
-            my $solQNormalized  = normalize(${$solutionAllQAs_ref}{"section$sectNrSol"}{"question"});
-            my $minQDistance    = 1000;
-            my $bestFitSection;
 
-            # find best matching exam question
-            EXAM_SECTION:
-            for my $sectNrExam (1 .. scalar(keys %{$allQAs_ref})){
-
-                my $examQNormalized = normalize(${$allQAs_ref}{"section$sectNrExam"}{"question"});
-
-                my $distance = calculateDistance($solQNormalized, $examQNormalized);
-
-                if($distance < $minQDistance){
-                    $minQDistance = $distance;
-                    $bestFitSection = ${$allQAs_ref}{"section$sectNrExam"};
-                }
-
-                last EXAM_SECTION if($distance == 0);
-                
-            }
+            my $solQ                            = ${$solutionAllQAs_ref}{'section'.$sectNrSol}{'question'};
+            my $solQNormalized                  = normalize($solQ);
+            my ($minQDistance, $bestFitSection) = findBestMatchingExamQuestion($allQAs_ref, $solQNormalized);
 
             # fill missed elements array
             if($minQDistance > 0){
-                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing question \t: ${$solutionAllQAs_ref}{'section'.$sectNrSol}{'question'}");
+                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing question \t: $solQ");
                 if($minQDistance/length($solQNormalized) <= 0.1){
                     push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Used instead \t: ${$bestFitSection}{'question'}");
                 }
@@ -82,41 +66,23 @@ sub checkExamFiles(){
             ##############################################
             #Answer Check
 
-            # only look at answers of relevant questions
+            # only look at answers of relevant questions (distance not more than 10% of the length)
             if($minQDistance/length($solQNormalized) <= 0.1){ 
 
-                my %solAnsOfCurrQ       = % {%{ %{$solutionAllQAs_ref}{"section$sectNrSol"} }{"answers"}};
-                my %examAnsOfCurrQ      = % {%{ $bestFitSection }{"answers"}};
-                my $numberCheckedA      = 0;
-                my $correctAChecked     = 0;
+                my %solAOfCurrQ      = % {%{ %{$solutionAllQAs_ref}{"section$sectNrSol"} }{"answers"}};
+                my %examAOfCurrQ     = % {%{ $bestFitSection }{"answers"}};
+                my $numberCheckedA   = 0;
+                my $correctAChecked  = 0;
 
                 SOL_ANSWER:
-                for my $sa (keys %solAnsOfCurrQ){
+                for my $sa (keys %solAOfCurrQ){
 
-                    my $solANormalized  = normalize($sa);
-                    my $minADistance    = 1000;
-                    my $bestFitA;
-
-                    # find best matching question answers
-                    EXAM_ANSWER:
-                    for my $ea (keys %examAnsOfCurrQ){
-
-                        my $examANormalized       = normalize($ea);
-                        my $ansDistance = calculateDistance($solANormalized, $examANormalized);
-
-                        if($ansDistance < $minADistance){
-                            $minADistance = $ansDistance;
-                            $bestFitA = $ea;
-                        }
-
-                        last EXAM_ANSWER if($ansDistance == 0);
-
-                    }
+                    my $solANormalized              = normalize($sa);
+                    my ($minADistance, $bestFitA)   = findBestMatchingExamAnswer(\%examAOfCurrQ, $solANormalized);
 
                     # fill missed elements array
                     if($minADistance > 0){
                         push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing answer \t: $sa\n");
-                    
                         if($minADistance/length($solANormalized) <= 0.1){
                             push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Used instead \t: $bestFitA\n");
                         }
@@ -124,32 +90,23 @@ sub checkExamFiles(){
                     
                     # Is the correct answer checked?
                     if($minADistance/length($solANormalized) <= 0.1){ 
-                        if($solAnsOfCurrQ{$sa} == 1 && $examAnsOfCurrQ{$bestFitA} == 1){
+                        if($solAOfCurrQ{$sa} == 1 && $examAOfCurrQ{$bestFitA} == 1){
                             $correctAChecked = 1;
                         }
                     }
                 }
 
-                EXAM_ANSWER:
-                for my $ea (keys %examAnsOfCurrQ){
+                $numberCheckedA += countCheckedAnswersPerSection(\%examAOfCurrQ);
 
-                    #count checked answers per section
-                    if($examAnsOfCurrQ{$ea} == 1){
-                        $numberCheckedA++;
-                    }
-    
-                }
-
-                # Award points for this section
+                # award points for this section
                 if($correctAChecked && $numberCheckedA == 1){
                     $correctCounter++;
                 }
 
-                #update additional information
+                # update additional information
                 if($numberCheckedA > 0){
                     $answeredQCounter++;
                 }
-                $numberCheckedA = 0;
             }
         }
 
@@ -164,6 +121,67 @@ sub checkExamFiles(){
     }
 
     return $examResults_ref;
+}
+
+
+sub findBestMatchingExamQuestion($allQAs_ref, $solQNormalized){
+
+    my $minQDistance    = 1000;
+    my $bestFitSection;
+
+    EXAM_SECTION:
+    for my $sectNrExam (1 .. scalar(keys %{$allQAs_ref})){
+
+        my $examQNormalized = normalize(${$allQAs_ref}{"section$sectNrExam"}{"question"});
+        my $distance        = calculateDistance($solQNormalized, $examQNormalized);
+
+        if($distance < $minQDistance){
+            $minQDistance = $distance;
+            $bestFitSection = ${$allQAs_ref}{"section$sectNrExam"};
+        }
+
+        last EXAM_SECTION if($distance == 0);
+        
+    }
+    return ($minQDistance, $bestFitSection);
+}
+
+
+sub findBestMatchingExamAnswer($examAOfCurrQ_ref, $solANormalized){
+
+    my $minADistance    = 1000;
+    my $bestFitA;
+
+    EXAM_ANSWER:
+    for my $ea (keys %{$examAOfCurrQ_ref}){
+
+        my $examANormalized = normalize($ea);
+        my $ansDistance     = calculateDistance($solANormalized, $examANormalized);
+
+        if($ansDistance < $minADistance){
+            $minADistance = $ansDistance;
+            $bestFitA = $ea;
+        }
+
+        last EXAM_ANSWER if($ansDistance == 0);
+
+    }
+    return ($minADistance, $bestFitA);
+}
+
+
+sub countCheckedAnswersPerSection($examAOfCurrQ_ref){
+
+    my $numberCheckedA = 0;
+
+    EXAM_ANSWER:
+    for my $ea (keys %{$examAOfCurrQ_ref}){
+        if(%{$examAOfCurrQ_ref}{$ea} == 1){
+            $numberCheckedA++;
+        }
+    }
+
+    return $numberCheckedA;
 }
 
 ################################################################################
@@ -206,7 +224,7 @@ sub reportResults($totalQuestions, $examResults_ref){
 
 sub reportCohortPerformence($totalQuestions, $examResults_ref){
 
-    my ($minAweredQ , $nrOfMinAnsweredQ) = ($totalQuestions    , 0);
+    my ($minAnsweredQ , $nrOfMinAnsweredQ) = ($totalQuestions    , 0);
     my ($maxAnsweredQ , $nrOfMaxAnsweredQ) = (0                  , 0);
 
     my ($minCorrectA  , $nrOfMinCorrectA)  = ($totalQuestions    , 0);
@@ -218,11 +236,11 @@ sub reportCohortPerformence($totalQuestions, $examResults_ref){
         my $correctA    = ${$examResults_ref}{'correctAns'}{$file};
 
         #answered questions:
-        if( $answeredQ < $minAweredQ ){
-            $minAweredQ       = $answeredQ;
+        if( $answeredQ < $minAnsweredQ ){
+            $minAnsweredQ       = $answeredQ;
             $nrOfMinAnsweredQ   = 1;
         }
-        elsif( $answeredQ == $minAweredQ ){
+        elsif( $answeredQ == $minAnsweredQ ){
             $nrOfMinAnsweredQ++;
         }
         if( $answeredQ > $maxAnsweredQ ){
@@ -253,7 +271,7 @@ sub reportCohortPerformence($totalQuestions, $examResults_ref){
     say("\n________COHORT PERFORMENCE________\n");
 
     say("Average number of answered questions \t: " . sprintf("%.1f" , ${$examResults_ref}{"answeredQ"}{"total"} / scalar(@examFiles) ));
-    say("Minimum " . ("\t" x 4) . ": $minAweredQ ($nrOfMinAnsweredQ student" . ($nrOfMinAnsweredQ != 1 ? "s" : "") . ")");
+    say("Minimum " . ("\t" x 4) . ": $minAnsweredQ ($nrOfMinAnsweredQ student" . ($nrOfMinAnsweredQ != 1 ? "s" : "") . ")");
     say("Maximum " . ("\t" x 4) . ": $maxAnsweredQ ($nrOfMaxAnsweredQ student" . ($nrOfMaxAnsweredQ != 1 ? "s" : "") . ")");
 
     say("\nAverage number of correct answers \t: " . sprintf("%.1f" , ${$examResults_ref}{"correctAns"}{"total"} / scalar(@examFiles) ));
