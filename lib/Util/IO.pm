@@ -7,46 +7,52 @@ use Text::Trim;
 use Exporter::Attributes 'import';
 
 ################################################################################
-#Subroutines
+#Exported Subroutines
 
-# This function reads in a given file and returns an array with converted 
-# lines for the exam file and another array with all correct answers.
-# If the second parameter is 0 the lines for the exam file won't be created.
-#
-# returned allQAs structure:
-#
-# section_-> {
-#     question => text,
-#     answers -> {
-#        text => isChecked,
-#        text => isChecked
-#     },
-# }
+# This subroutine reads in a given file and returns:
+# @return: @examFileLines - an array with converted lines for the exam file 
+#                          (If the second parameter is 0 the lines for the exam file won't be created.)
+# @return: %allQAs - a hash that stores all sections with the question-text and the answers (text and if checked)
+#                           Hash structure:
+#                           {   sectionNR => {  question => text,
+#                                               answers  => {  text => isChecked,
+#                                                              text => isChecked,
+#                                                               ...
+#                                                           }
+#                                             },
+#                               ... 
+#                           }
 sub readFile : Exported ($file, $createExamFileLines = 1){
-    my $f;
-    open($f, '<', $file)    or die "$file: $!";
+    
+    #############################
+    #PROPERTIES
+
     # return properties
-    my @examFileLines       = ();
-    my %allQAs              = ();
-    # my %allCorrectAnswers   = ();
+    my @examFileLines       = (); # all lines for an empty student exam (with random answer order)
+    my %allQAs              = (); # all sections with the question-text and the answers (text and if checked)
 
     # helper properties
-    my $introText           = 1;
-    my $sectionNumber       = 1;
+    my $introText           = 1; # flag that is set to 0 if the intro section is read in.
+    my $sectionNumber       = 1; 
     my $questionNumber;
     my $answerNumber        = 1;
-    my %currentAnswerSet    = ();
+    my %currentAnswerSet    = (); # all answer-texts of the current section
 
-    state $SECTIONEND_REGEX = qr{ ^ _+ $ }xms;
-    state $ANSWER_REGEX     = qr{ ^ \s* \[ .* \] }xms;
-    state $QUESTION_REGEX   = qr{ ^ ([0-9]+) [[:punct:]] .* $}xms; #todo questions that are longer than 1 line
+    # regex
+    state $SECTION_END_REGEX = qr{ ^ _+ $ }xms;
+    state $ANSWER_REGEX      = qr{ ^ \s* \[ .* \] }xms;
+    state $QUESTION_REGEX    = qr{ ^ ([0-9]+) [[:punct:]] .* $}xms; #todo questions that are longer than 1 line
+
+    #############################
+
+    open(my $f, '<', $file)    or die "$file: $!";
 
     LINE:
     while(my $line = readline($f)){
         #intro text
         if($introText){
             push(@examFileLines, $line) if $createExamFileLines;
-            if($line =~ $SECTIONEND_REGEX){ #end of intro-section
+            if($line =~ $SECTION_END_REGEX){ #end of intro-section
                 $introText = 0;
             }
         }
@@ -58,14 +64,15 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
 
         #print lines
         else{
-            pushAllPossibleAnswers(\%currentAnswerSet, \@examFileLines, $createExamFileLines);
+            pushAllPossibleAnswersToExamFileLines(\%currentAnswerSet, \@examFileLines, $createExamFileLines);
             push(@examFileLines, $line) if $createExamFileLines;
-            if($line =~ $SECTIONEND_REGEX){ #end of current question-section
+            if($line =~ $SECTION_END_REGEX){ #end of current question-section
                 $sectionNumber++;
                 $answerNumber = 1;
             }
             elsif($line =~ $QUESTION_REGEX){
                 $questionNumber = $1;
+                $line =~ s{\n}{}xg; #delete \n
                 $allQAs{"section".$questionNumber}{"question"} = $line;
             }
         }
@@ -77,34 +84,53 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
 }
 
 
-sub pushAllPossibleAnswers($currentAnswerSet_ref, $examFileLines_ref, $createExamFileLines){
+#This subroutine writes the content of the @examFileLines into the file
+sub createExamFile : Exported ($file, @examFileLines){
+
+    open(my $f, '>', $file  ) or die "$file: $!";
+
+    for my $line (@examFileLines){
+        print({$f} $line);
+    }
+
+    close($f);
+
+    say "$file has been created.";
+}
+
+#################################################################
+# Internal subroutines
+
+# this subroutine pushes all possible answers for the current section into the array examFileLines 
+# in random order and with empty brackets.
+sub pushAllPossibleAnswersToExamFileLines($currentAnswerSet_ref, $examFileLines_ref, $createExamFileLines){
     if(keys(%{$currentAnswerSet_ref}) != 0){
-            if($createExamFileLines){
-                ANSWER:
-                for my $key (keys %{$currentAnswerSet_ref}){
-                push(@{$examFileLines_ref}, "\t[ ] ${$currentAnswerSet_ref}{$key}\n");
+        if($createExamFileLines){
+            ANSWER:
+            for my $answer (keys %{$currentAnswerSet_ref}){
+                push(@{$examFileLines_ref}, "\t[ ] ${$currentAnswerSet_ref}{$answer}\n");
             }
         }
         %{$currentAnswerSet_ref} = ();
     }
 }
 
+#This subroutine reads the passed line.
+#The answer text and whether the answer was checked are stored.
 sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $sectionNumber_ref, $allQAs_ref){
-    my $bracketsStart   = index(${$line_ref}, "[");
-    my $bracketsEnd     = index(${$line_ref}, "]");
-    my $bracketSize     = $bracketsEnd - $bracketsStart + 1;
-    my $bracket         = trim(substr(${$line_ref}, $bracketsStart, $bracketSize)); #todo: bracket aus regex auslesen
-
-    # my ($BRACKET_REGEX, $bracketContent) = qr{( (?m:^) \s*  (\[ .*? \])  )}xms;
-    # my $br = $1;
-
-    my $answerText          = trim(substr(${$line_ref}, $bracketsEnd+1)); #https://metacpan.org/pod/Text::Trim
+    #split bracket and answer text
+    my $bracket     = ${$line_ref};
+    $bracket        =~ s{^\] .*}{\]}xms;
+    $bracket        = trim($bracket); #https://metacpan.org/pod/Text::Trim
+    my $answerText  = ${$line_ref};
+    $answerText     =~ s{\[ .*? \]}{}xg;
+    $answerText     = trim($answerText);
     
-    state $CORRECT_ANSWER_REGEX = qr{ ^ \[ \S+? \] }xms;
+    state $ANSWER_IS_CHECKED_REGEX = qr{ ^ \[ \S+? \] }xms;
 
+    #save answerText (key) and if it isChecked (value) in structures
     ${$currentAnswerSet_ref}{"answer".${$answerNumber_ref}++} = $answerText;
-
-    $allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$answerText} = ($bracket =~ $CORRECT_ANSWER_REGEX); #save answerText (key) and if it isChecked (value)
+    $allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$answerText} = ($bracket =~ $ANSWER_IS_CHECKED_REGEX);
 }
 
 1; #return true at the end of the module

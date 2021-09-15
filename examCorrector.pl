@@ -61,9 +61,9 @@ sub checkExamFiles(){
 
             # fill missed elements array
             if($minQDistance > 0){
-                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing question \t\t: $solQ");
+                push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing question \t\t: $solQ\n");
                 if($minQDistance/length($solQNormalized) <= 0.1){
-                    push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Used instead \t\t: ${$bestFitSection}{'question'}");
+                    push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "            Used instead \t\t: ${$bestFitSection}{'question'}\n");
                 }
             }
 
@@ -88,7 +88,7 @@ sub checkExamFiles(){
                     if($minADistance > 0){
                         push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Missing answer \t\t: $sa\n");
                         if($minADistance/length($solANormalized) <= 0.1){
-                            push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "Section $sectNrSol - Used instead \t\t: $bestFitA\n");
+                            push($examResults_ref -> {"missedEl"} -> {$file} -> @* , "            Used instead \t\t: $bestFitA\n");
                         }
                     }
                     
