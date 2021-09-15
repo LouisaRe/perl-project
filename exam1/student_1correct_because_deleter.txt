@@ -17,28 +17,27 @@ Warning: Each question has only one correct answer. Answers to
 ________________________________________________________________________________
 
 1. The name of this class is:
-    [ ] Introduction to Perl for Programmers
-    [x] Introduction to Perl for Programmers and Other Crazy People
-    [ ] Introduction to Programming for Pearlers
+    [ ] Introduction      to Perl for Programmers
+    [ ] Introduction to Perl for Programmers and Other Crazy People
+    [X] Introduction to Programming for Pearlers
     [ ] Introduction to Aussies for Europeans
     [ ] Introduction to Python for Slytherins
 ________________________________________________________________________________
-2. The lecturer for this class is:
-    [g] Dr Theodor Seuss Geisel
+
+2. The lecturer for this class:
     [ ] Dr Sigmund Freud
     [ ] Dr Victor von Doom
-    [ ] Dr Damian Conway
-    [ ] Dr Who
+    [X] Dr Damian Conway
 
 ________________________________________________________________________________
 
 
 3. The correct way to answer each question is:
 
-    [1] To put an X in the box beside the correct answer
+    [ ] To put an X the box beside the correct answer
     [ ] To put an X in every box, except the one beside the correct answer
     [ ] To put an smiley-face emoji in the box beside the correct answer
     [ ] To delete the box beside the correct answer
-    [ ] To delete the correct answer
+    [6] To delete the correct answer
 
 ________________________________________________________________________________

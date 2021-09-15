@@ -34,14 +34,13 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
     # helper properties
     my $introText           = 1; # flag that is set to 0 if the intro section is read in.
     my $sectionNumber       = 1; 
-    my $questionNumber;
     my $answerNumber        = 1;
     my %currentAnswerSet    = (); # all answer-texts of the current section
 
     # regex
     state $SECTION_END_REGEX = qr{ ^ _+ $ }xms;
     state $ANSWER_REGEX      = qr{ ^ \s* \[ .* \] }xms;
-    state $QUESTION_REGEX    = qr{ ^ ([0-9]+) [[:punct:]] .* $}xms; #todo questions that are longer than 1 line
+    state $QUESTION_REGEX    = qr{ ^ [0-9]+ [[:punct:]] .* $}xms; #todo questions that are longer than 1 line
 
     #############################
 
@@ -71,9 +70,8 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
                 $answerNumber = 1;
             }
             elsif($line =~ $QUESTION_REGEX){
-                $questionNumber = $1;
                 $line =~ s{\n}{}xg; #delete \n
-                $allQAs{"section".$questionNumber}{"question"} = $line;
+                $allQAs{"section".$sectionNumber}{"question"} = $line;
             }
         }
     }
