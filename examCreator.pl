@@ -16,9 +16,6 @@ use Util::IO;
 #files (params)
 my ($solutionFile, $examPath) = @ARGV;
 
-say "SOLUTION_FILE: $solutionFile";
-
-
 #time stamp
 my  ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time); # https://perldoc.perl.org/functions/localtime
 my  $customTimeStamp = sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900,$mon+1,$mday,$hour,$min,$sec); # https://perldoc.perl.org/functions/sprintf
@@ -31,10 +28,8 @@ if(defined($examPath)){
 }else{
     $examPath = "";
 }
-say "EXAM_PATH: $examPath";
 my $solutionFileName = $solutionFile;  
    $solutionFileName =~ s{^ (?: .+? /)* }{}xms;
-say "SOLUTIONFILE_NAME: $solutionFileName";
 my $examFile         = "$examPath$customTimeStamp-$solutionFileName";
 
 # read solution file

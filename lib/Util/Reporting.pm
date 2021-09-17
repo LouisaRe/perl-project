@@ -114,7 +114,7 @@ sub reportNotExpected : Exported ($examFiles_ref, $totalQuestions, $examResults_
         }else{
             for my $lowR (@lowestResults){
                 if($lowR == ${$examResults_ref}{'correctAns'}{$file}){
-                    say( "$file \t: ${$examResults_ref}{'correctAns'}{$file}/$totalQuestions (bottom 25% of cohort)");
+                    say( equalLength($file, $lengthLongestFileName) ." \t: ${$examResults_ref}{'correctAns'}{$file}/$totalQuestions (bottom 25% of cohort)");
                 }
             }
         }
