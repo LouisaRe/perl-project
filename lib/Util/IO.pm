@@ -44,14 +44,14 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
 
     #############################
 
-    open(my $f, '<', $file)    or die "$file: $!";
+    open(my $f, '<', $file) or die "$file: $!";
 
     LINE:
     while(my $line = readline($f)){
         #intro text
         if($introText){
             push(@examFileLines, $line) if $createExamFileLines;
-            if($line =~ $SECTION_END_REGEX){ #end of intro-section
+            if(trim($line) =~ $SECTION_END_REGEX){ #end of intro-section
                 $introText = 0;
             }
         }
@@ -65,7 +65,7 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
         else{
             pushAllPossibleAnswersToExamFileLines(\%currentAnswerSet, \@examFileLines, $createExamFileLines);
             push(@examFileLines, $line) if $createExamFileLines;
-            if($line =~ $SECTION_END_REGEX){ #end of current question-section
+            if(trim($line) =~ $SECTION_END_REGEX){ #end of current question-section
                 $sectionNumber++;
                 $answerNumber = 1;
             }

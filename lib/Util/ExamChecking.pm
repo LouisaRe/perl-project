@@ -5,6 +5,7 @@ use strict;
 use experimental 'signatures';
 use Exporter::Attributes 'import';
 
+use Data::Show;
 use Text::Trim;
 use Lingua::StopWords qw(getStopWords);
 use Text::Levenshtein qw(distance);
@@ -14,7 +15,27 @@ use Util::IO;
 
 ################################################################################
 
-
+# This subroutine matches the contents of the passed exam-files with the passed solution and returns:
+# @return: %examResults - a hash with the total results per file. This includes :
+#                               + the number of answered questions.
+#                               + the number of correct answers
+#                               + missed elements
+#                           Hash structure:
+#                           {   answeredQ   => {  file => NR,
+#                                                 ...
+#                                               },
+#                               correctAns  => {  file => NR,
+#                                                 ...
+#                                               },
+#                               missedEl    => [ missedElements ]
+#                           }
+# @return: %wrongAnsweredQ - a hash that stores all wrongly checked answers of each question (section) per file (without missed elements):
+#                           Hash structure:
+#                           {   file => {  section-nr => [ wrongl checked answers ],
+#                                           ...
+#                                       }
+#                               ...
+#                           }
 sub checkExamFiles : Exported ($examFiles_ref, $solutionAllQAs_ref){
 
     my %examResults = ();
