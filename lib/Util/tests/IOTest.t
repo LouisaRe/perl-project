@@ -9,9 +9,9 @@ use Util::IO;
 plan(tests => 32);
 
 #####################################################
+# GIVEN:
 
-#given:
-my ($examFileLines_ref, $allQAs_ref) = readFile("../../../masterFiles/master_file_1.txt");
+my ($examFileLines_ref, $allQAs_ref) = readFile("testingFiles/masterFiles/master_file_1.txt");
 
 #####################################################
 # Test 1: test $allQAs_ref
