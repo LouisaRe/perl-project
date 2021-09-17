@@ -17,7 +17,8 @@ Warning: Each question has only one correct answer. Answers to
 ________________________________________________________________________________
 
 1. The name of this class is:
-    [g] Introduction to Perl for Programmers
+    [g] Introduction to
+    Perl for Programmers
     [ ] Introduction to Perl for Programmers and Other Crazy People
     [ ] Introduction to Programming for Pearlers
     [ ] Introduction to Aussies for Europeans
@@ -25,7 +26,8 @@ ________________________________________________________________________________
 ________________________________________________________________________________
 2. The lecturer for this class is:
     [ ] Dr Theodor Seuss Geisel
-    [ ] Dr Sigmund Freud
+    [ ] Dr Sigmund
+    Freud
     [ ] Dr Victor von Doom
     [x] Dr Damian Conway
     [ ] Dr Who

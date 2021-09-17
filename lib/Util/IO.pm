@@ -3,7 +3,7 @@ package Util::IO;
 use v5.34;
 use strict;
 use experimental 'signatures';
-use Text::Trim;
+use Text::Trim; #https://metacpan.org/pod/Text::Trim
 use Exporter::Attributes 'import';
 
 ################################################################################
@@ -36,11 +36,14 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
     my $sectionNumber       = 1; 
     my $answerNumber        = 1;
     my %currentAnswerSet    = (); # all answer-texts of the current section
+    my $lastLine; # "sectionEnd" / "answer" / "question"
+    my $lastAnswerText      = "";
 
     # regex
     state $SECTION_END_REGEX = qr{ ^ _+ $ }xms;
     state $ANSWER_REGEX      = qr{ ^ \s* \[ .* \] }xms;
-    state $QUESTION_REGEX    = qr{ ^ [0-9]+ [[:punct:]] .* $}xms; #todo questions that are longer than 1 line
+    state $QUESTION_REGEX    = qr{ ^ [0-9]+ [[:punct:]] .* $}xms;
+    state $CONTINUE_REGEX    = qr{ .* \w .* }xms;
 
     #############################
 
@@ -53,12 +56,19 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
             push(@examFileLines, $line) if $createExamFileLines;
             if(trim($line) =~ $SECTION_END_REGEX){ #end of intro-section
                 $introText = 0;
+                $lastLine = "sectionEnd";
             }
         }
 
         #read and save new answer
         elsif($line =~ $ANSWER_REGEX){
-            readAndSaveNewAnswer(\%currentAnswerSet, \$line, \$answerNumber, \$sectionNumber , \%allQAs);
+            $lastAnswerText = readAndSaveNewAnswer(\%currentAnswerSet, \$line, \$answerNumber, \$sectionNumber , \%allQAs);
+            $lastLine = "answer";
+        }
+        #read and save rest of previous answer (if answer is longer than 1 line)
+        elsif(trim($line) =~ $CONTINUE_REGEX && not(trim($line) =~ $SECTION_END_REGEX) && $lastLine eq "answer"){ 
+            updatelastAnswer(\%currentAnswerSet, \$line, \$answerNumber, \$sectionNumber , \%allQAs, $lastAnswerText);
+            $lastLine = "answer";
         }
 
         #print lines
@@ -68,10 +78,18 @@ sub readFile : Exported ($file, $createExamFileLines = 1){
             if(trim($line) =~ $SECTION_END_REGEX){ #end of current question-section
                 $sectionNumber++;
                 $answerNumber = 1;
+                $lastLine = "sectionEnd";
             }
+            #question
             elsif($line =~ $QUESTION_REGEX){
                 $line =~ s{\n}{}xg; #delete \n
                 $allQAs{"section".$sectionNumber}{"question"} = $line;
+                $lastLine = "question";
+            }
+            #read and save rest of previous question (if question is longer than 1 line)
+            elsif(trim($line) =~ $CONTINUE_REGEX && $lastLine eq "question"){ 
+                $allQAs{"section".$sectionNumber}{"question"} .= " ".trim($line);
+                $lastLine = "question";
             }
         }
     }
@@ -113,15 +131,16 @@ sub pushAllPossibleAnswersToExamFileLines($currentAnswerSet_ref, $examFileLines_
     }
 }
 
-#This subroutine reads the passed line.
-#The answer text and whether the answer was checked are stored.
+# This subroutine stores the answer text and whether the answer was checked or not in the following structures:
+# %currentAnswerSet and %allQAs.
+# @returns: $answerText
 sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $sectionNumber_ref, $allQAs_ref){
     #split bracket and answer text
     my $bracket     = ${$line_ref};
-    $bracket        =~ s{^\] .*}{\]}xms;
-    $bracket        = trim($bracket); #https://metacpan.org/pod/Text::Trim
+    $bracket        =~ s{^\] .*}{\]}xms; #delete text after bracket
+    $bracket        = trim($bracket);
     my $answerText  = ${$line_ref};
-    $answerText     =~ s{\[ .*? \]}{}xg;
+    $answerText     =~ s{\[ .*? \]}{}xg; #delete bracket
     $answerText     = trim($answerText);
     
     state $ANSWER_IS_CHECKED_REGEX = qr{ ^ \[ \S+? \] }xms;
@@ -129,6 +148,21 @@ sub readAndSaveNewAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $s
     #save answerText (key) and if it isChecked (value) in structures
     ${$currentAnswerSet_ref}{"answer".${$answerNumber_ref}++} = $answerText;
     $allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$answerText} = ($bracket =~ $ANSWER_IS_CHECKED_REGEX);
+    return $answerText; #for further use, if the answer text is not yet finished
+}
+
+# This subroutine updates the last answer with the rest of the answer (which was on a new line)
+# %currentAnswerSet and %allQAs are updated.
+sub updatelastAnswer($currentAnswerSet_ref, $line_ref, $answerNumber_ref, $sectionNumber_ref, $allQAs_ref, $lastAnswerText){
+    my $answerText = trim(${$line_ref});
+    my $answerIsChecked = $allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$lastAnswerText};
+
+    #update structures
+    ${$currentAnswerSet_ref}{"answer".(${$answerNumber_ref}-1)} .= " ".$answerText;
+    $allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$lastAnswerText." ".$answerText} = $answerIsChecked;
+
+    #delete old entry
+    delete($allQAs_ref -> {"section".${$sectionNumber_ref}} -> {"answers"} -> {$lastAnswerText});
 }
 
 1; #return true at the end of the module

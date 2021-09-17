@@ -23,10 +23,13 @@ ________________________________________________________________________________
     [ ] Introduction to Aussies for Europeans
     [ ] Introduction to Python for Slytherins
 ________________________________________________________________________________
-2. The lecturer for this class is:
+2. The lecturer
+for this
+class is:
     [ ] Dr Theodor Seuss Geisel
     [ ] Dr Sigmund Freud
-    [ ] Dr Victor von Doom
+    [ ] Dr Victor 
+    von Doom
     [x] Dr Damian Conway
     [ ] Dr Who
 
